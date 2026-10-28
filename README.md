@@ -40,8 +40,7 @@ harness, and the rules export to Codex, Gemini CLI and Antigravity.
    │ agent  t1   │    │ agent  t2   │    │ agent  t3   │   one worktree each,
    │ sonnet      │    │ sonnet-low  │    │ opus        │   tier picked by
    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘   task complexity
-          └───────── short report + diff ───────┘   the only thing that
-                            │                          comes back
+          └─────── only a report + diff ────────┘
                             │
   ┌─────────────────────────▼──────────────────────────────────┐
   │  INTEGRATE, one branch at a time                           │
