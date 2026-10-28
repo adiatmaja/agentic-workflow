@@ -1,0 +1,179 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(curl:*)",
+      "Bash(curl *)"
+    ],
+    "deny": [
+      "WebFetch"
+    ]
+  },
+  "hooks": {
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/subagent-research-context.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Injecting research method"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/peer-sessions-context.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Noting peer sessions"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/block-ps-heredoc-commit.py\"",
+            "if": "Bash(git commit*)",
+            "shell": "bash",
+            "statusMessage": "Checking commit message syntax"
+          },
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/node-test-compact.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Compacting node --test output"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/agent-dispatch-guard.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Checking agent dispatch"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/read-guard.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Checking read size"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/worktree-remove-guard.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Checking worktree removal"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/comment-guard.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Checking added comments"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/plan-dispatch-ruling.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Injecting plan-dispatch ruling"
+          }
+        ]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/plan-dispatch-ruling.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Injecting plan-dispatch ruling"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/peer-sessions-context.py\"",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Noting peer sessions"
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/worktree-create.py\"",
+            "shell": "bash",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$HOME/.claude/hooks/worktree-remove.py\"",
+            "shell": "bash",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true
+  },
+  "autoCompactWindow": 300000,
+  "autoCompactEnabled": true
+}
