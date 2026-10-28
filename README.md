@@ -1,14 +1,15 @@
 # agentic-workflow
 
-> My main coding session doesn't write the code. It plans, sends independent tasks to agents
-> running in parallel, and merges what comes back.
+> My main coding session doesn't write the code. It picks the right agent for each task, runs
+> independent tasks in parallel, and merges what comes back.
 
 ## Overview
 
 A coding agent working alone does one task at a time, and its context grows with every file it
-touches. I run the main session as an **orchestrator** instead. It splits a plan into independent
-tasks, gives each one to a subagent in its own git worktree, and merges the results back one
-branch at a time. A plan of five independent tasks takes about as long as one.
+touches. I run the main session as an **orchestrator** instead, whatever I ask it for. A one-line
+"fix this bug" in a fresh session goes to an implementer agent at the right tier, in its own git
+worktree. The session then merges the result. A larger feature gets a plan first, and its
+independent tasks run side by side, so five of them take about as long as one.
 
 This repo is the configuration that makes that work day to day: the rulings the orchestrator
 follows, the agent tiers it dispatches to, and the hooks that stop it from drifting back to doing
@@ -17,15 +18,15 @@ everything itself.
 ## The workflow
 
 ```
-                 ┌──────────────────────┐
-                 │  PLAN                │  each task names its agent,
-                 │  tasks + dependencies│  its worktree, what blocks it
-                 └──────────┬───────────┘
-                            │
-  ┌─────────────────────────▼──────────────────────────────────┐
+   "fix this bug"                       "build this feature"
+   one task, no plan                    plan first: tasks + dependencies
+          │                                        │
+  ┌───────▼────────────────────────────────────────▼───────────┐
   │  ORCHESTRATOR (main session)                               │
-  │  dispatches every unblocked task at once, then waits for   │
-  │  nothing: the harness wakes it when an agent reports       │
+  │  trivial edit ─▶ does it inline                            │
+  │  anything else ─▶ picks the tier, dispatches every         │
+  │  unblocked task at once, then waits for nothing: the       │
+  │  harness wakes it when an agent reports                    │
   └───────┬──────────────────┬──────────────────┬──────────────┘
           ▼                  ▼                  ▼
    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
@@ -40,15 +41,18 @@ everything itself.
   │         ─▶ fast-forward main ─▶ remove the worktree        │
   └─────────────────────────┬──────────────────────────────────┘
                             ▼
-          next wave starts from the new main ─▶ … ─▶ one review
-          over the whole diff ─▶ push when the merged gate is green
+          next wave (if any) starts from the new main ─▶ review
+          ─▶ push when the merged gate is green
 ```
+
+A plan only appears for multi-file features. A fix, a single edit or a question goes straight to
+dispatch, because planning skills cost more requests than they save on small work.
 
 There are three rules behind it:
 
 - **The session orchestrates. It doesn't implement.** It writes code itself only for trivial
-  edits. Everything else goes to an agent, which keeps the session's own context small for
-  the whole plan.
+  edits. Everything else goes to an agent, even a single-file fix, which keeps the session's own
+  context small however long the session runs.
 - **Parallel by default.** Any task that doesn't need another task's output runs now, even two
   sections of the same file. Conflicts get resolved at integration, not during the work.
 - **Each task gets the cheapest tier that can do it.** The tier depends on how complex the task
@@ -60,7 +64,7 @@ There are three rules behind it:
 | Mechanical, fully specified in the brief | `impl-sonnet-low` |
 | Well-scoped code (the default) | `impl-sonnet-medium` |
 | UI work, open-ended tasks, load-bearing invariants | `impl-opus-medium` / `-high` |
-| Review the plan's diff · re-check after fixes | `review-first` · `review-recheck` |
+| Review the diff · re-check after fixes | `review-first` · `review-recheck` |
 
 ## Guardrails
 
