@@ -1,7 +1,8 @@
 # agentic-workflow
 
-> My main coding session doesn't write the code. It picks the right agent for each task, runs
-> independent tasks in parallel, and merges what comes back.
+> An orchestrator workflow for AI coding harnesses: the main session doesn't write the code. It
+> picks the right agent for each task, runs independent tasks in parallel, and merges what comes
+> back.
 
 ## Overview
 
@@ -11,9 +12,11 @@ touches. I run the main session as an **orchestrator** instead, whatever I ask i
 worktree. The session then merges the result. A larger feature gets a plan first, and its
 independent tasks run side by side, so five of them take about as long as one.
 
-This repo is the configuration that makes that work day to day: the rulings the orchestrator
+The pattern isn't tied to one tool. It fits any agentic coding harness that can run subagents,
+work in git worktrees and hook into tool calls. This repo holds the rulings the orchestrator
 follows, the agent tiers it dispatches to, and the hooks that stop it from drifting back to doing
-everything itself.
+everything itself. I run it on Claude Code, so the hooks and agent files are written for that
+harness, and the rules export to Codex, Gemini CLI and Antigravity.
 
 ## The workflow
 
@@ -66,6 +69,9 @@ There are three rules behind it:
 | UI work, open-ended tasks, load-bearing invariants | `impl-opus-medium` / `-high` |
 | Review the diff · re-check after fixes | `review-first` · `review-recheck` |
 
+The tier names carry the models I use. In another harness, map them to its own small, mid and
+large models.
+
 ## Guardrails
 
 Written rules alone didn't hold, so hooks enforce the ones that matter for the loop:
@@ -88,6 +94,8 @@ each worktree takes about 1 GB of disk, which is reclaimed after the merge, and 
 as soon as they're merged.
 
 ## Quick start
+
+On Claude Code, the reference harness:
 
 ```bash
 git clone https://github.com/adiatmaja/agentic-workflow && cd agentic-workflow
@@ -115,9 +123,10 @@ Install the agentic-workflow configuration from https://github.com/adiatmaja/age
 
 </details>
 
-**Other harnesses.** The rules are plain prose and port anywhere. `tools/export-config.sh --target
-codex,gemini,agy` writes an installer for each target, and `--flat` produces one paste-able file.
-Hooks and agents are Claude Code only.
+**On other harnesses.** The rules are plain prose and port anywhere. `tools/export-config.sh
+--target codex,gemini,agy` writes an installer for each target, and `--flat` produces one
+paste-able file for any harness. The hooks and agent files use Claude Code's formats; porting them
+means rewiring the same checks to the target harness's own hook and subagent setup.
 
 ## Project structure
 

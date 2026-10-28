@@ -8,7 +8,7 @@ language or file type belongs in a `paths:`-scoped rule instead.
 Measured 2026-10-10 (157k requests, deduplicated): per-request cost is FLAT since 09-20 (~2,2 units);
 **the bill now moves with REQUEST VOLUME** — 2,4k/day (09-23..30) vs 10,6k/day (10-03..08), 59 subagent
 runs per main session, implementers 69–72 % of spend. Re-measure: `bash ~/.claude/verify-token-setup.sh`
-and `/usage` (per-agent attribution + cache-miss causes). Anthropic's benchmark: ~$13/dev/active day.
+and `/usage` (per-agent attribution + cache-miss causes).
 
 - **Fewer requests.** Batch: one script or compound command beats ten single greps; independent tool
   calls go in one message. **Every agent run pays a ~60k start context on every turn** — a run you
