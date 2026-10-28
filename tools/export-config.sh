@@ -4,7 +4,7 @@
 #   ./export-config.sh [DEST]              # default DEST: ~/claude-config-export
 #   INCLUDE_MEMORY=1 ./export-config.sh    # also carry per-project auto-memory
 #   ./export-config.sh --flat              # ALSO emit PORTABLE.md, one paste-able file
-#   ./export-config.sh --flat --memory C--working-space-mtel-mockup
+#   ./export-config.sh --flat --memory C--path-to-project    # a ~/.claude/projects/ folder name
 #
 # TWO DESTINATIONS, TWO ARTIFACTS.
 #   the tarball    -> another CLAUDE CODE install. Unpack over ~/.claude. Keeps
