@@ -1,182 +1,102 @@
 # agentic-workflow
 
-> The rules an agent reads, the hooks that enforce them when reading is not enough, and the agent
-> tiers that keep the bill proportional. A working configuration for agentic coding harnesses.
+> My main coding session doesn't write the code. It plans, sends independent tasks to agents
+> running in parallel, and merges what comes back.
 
 ## Overview
 
-This is my working configuration for agentic coding, published as it runs day to day on my RAG,
-LLM fine-tuning, forecasting and agent-tooling projects. Client and project names are removed; the
-rulings, measurements and hooks are the ones in use.
+A coding agent working alone does one task at a time, and its context grows with every file it
+touches. I run the main session as an **orchestrator** instead. It splits a plan into independent
+tasks, gives each one to a subagent in its own git worktree, and merges the results back one
+branch at a time. A plan of five independent tasks takes about as long as one.
 
-It rests on one measured fact: **every turn re-reads the whole context, so the bill is
-requests × context size.** Everything here cuts requests, cuts context, or refuses the action a rule
-alone failed to stop.
+This repo is the configuration that makes that work day to day: the rulings the orchestrator
+follows, the agent tiers it dispatches to, and the hooks that stop it from drifting back to doing
+everything itself.
 
-The prose (`CLAUDE.md`, `rules/`) is harness-agnostic and ports to Codex, Gemini CLI and Antigravity.
-The machinery (`hooks/`, `agents/`, `settings.example.json`) uses Claude Code's hook and subagent
-protocol.
-
-## What loads when
+## The workflow
 
 ```
-  session start                  file opened                       tool call
-  ─────────────                  ───────────                       ─────────
-  CLAUDE.md ─────────────┐       rules with paths: ──┐             PreToolUse ──▶ hook ──▶ allow / deny / rewrite
-  rules/workflow.md ─────┼─▶ ctx   *.py ───▶ python rules         PostToolUse ─▶ comment-guard, plan-dispatch-ruling
-  rules/indonesian-copy.md        *.html ─▶ ui-ux, visualisation   SubagentStart ▶ research method, peer protocol
-  SessionStart hook ─────┘       CLAUDE.md ▶ claude-md
-                                                  every turn re-reads all of it ──▶ bill = requests × context
+                 ┌──────────────────────┐
+                 │  PLAN                │  each task names its agent,
+                 │  tasks + dependencies│  its worktree, what blocks it
+                 └──────────┬───────────┘
+                            │
+  ┌─────────────────────────▼──────────────────────────────────┐
+  │  ORCHESTRATOR (main session)                               │
+  │  dispatches every unblocked task at once, then waits for   │
+  │  nothing: the harness wakes it when an agent reports       │
+  └───────┬──────────────────┬──────────────────┬──────────────┘
+          ▼                  ▼                  ▼
+   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+   │ agent  t1   │    │ agent  t2   │    │ agent  t3   │   one worktree each,
+   │ sonnet      │    │ sonnet-low  │    │ opus        │   tier picked by
+   └──────┬──────┘    └──────┬──────┘    └──────┬──────┘   task complexity
+          └───────── short report + diff ───────┘
+                            │
+  ┌─────────────────────────▼──────────────────────────────────┐
+  │  INTEGRATE, one branch at a time                           │
+  │  rebase ─▶ lint + affected tests on the MERGED tree        │
+  │         ─▶ fast-forward main ─▶ remove the worktree        │
+  └─────────────────────────┬──────────────────────────────────┘
+                            ▼
+          next wave starts from the new main ─▶ … ─▶ one review
+          over the whole diff ─▶ push when the merged gate is green
 ```
 
-A rule without `paths:` loads at launch; a scoped rule loads when a matching file is read or edited
-([docs](https://code.claude.com/docs/en/memory)). Hooks run on tool events and return a decision or
-extra context ([docs](https://code.claude.com/docs/en/hooks)).
+There are three rules behind it:
 
-Measured on this setup (157k requests, deduplicated, see `rules/workflow.md`):
-
-| | |
-|---|---|
-| Request volume once dispatch went parallel | 2,4k/day → 10,6k/day; implementers 69–72 % of spend |
-| Start context an agent pays on every turn | ~60k tokens |
-| Agent resume vs fresh dispatch | a resume re-writes ~243k of 260k tokens |
-| `node --test` output reaching the model | 80.936 B → 62 B with `node-test-compact` |
-
-## One plan, executed
-
-```
-  plan ── every task carries: Agent · Worktree · Review · Parallel
-    │
-    ▼
-  SESSION ── wave 1: every unblocked task, one message ──┐
-    │                                                     ▼
-    │    ┌─ impl-sonnet-medium  .worktree/<project>/t1 ─┐    agent-dispatch-guard checks:
-    │    ├─ impl-sonnet-low     .worktree/<project>/t2 ─┤    configured name · no `model` override
-    │    └─ impl-opus-medium    .worktree/<project>/t3 ─┘    impl-* in its own worktree
-    │                 │ ≤ 200-word report + git diff --stat
-    ▼                 ▼
-  integrate one branch at a time:
-    rebase ─▶ lint + affected tests on the MERGED tree ─▶ fast-forward main ─▶ remove worktree
-    │                                                       (worktree-remove-guard: unlink node_modules first)
-    ▼ wave 2 starts from the new main
-  review-first over the whole diff ─▶ exactly located: fix inline · else fix 1 = same agent, fix 2 = one tier up
-    ▼
-  push origin main on a green merged-tree gate · deploy only on explicit order
-```
-
-**The main session is an orchestrator, not an implementer.** It dispatches the agents, merges
-their branches one at a time, resolves the conflicts that integration surfaces, and reclaims the
-worktrees; it writes code itself only for the trivial. **Anything not tied to another task's output
-runs at once, even two sections of the same file**: each implementer has its own worktree, the
-merge regenerates generated maps, and a conflict is handled at integration, never during the work.
-
-The payoff is wall-clock time. A plan of five independent tasks takes one task's duration, not
-five, because five sessions work on it in parallel while the orchestrator waits for nothing: no
-polling, no sleeping; the harness re-invokes it when a child reports. The cost is machine
-resources and tokens, measured below.
-
-### What it costs on the machine
-
-Parallel dispatch trades machine resources for wall-clock time. Measured 2026-10-28 on a 16 GB
-Windows 11 laptop with four interactive sessions live (`tools/measure-footprint.py <workspace>`):
-
-| Resource | Measured | Notes |
-|---|---|---|
-| Disk per worktree | 907–988 MB (main checkout 2,45 GB) | tracked files + copied `.env`/`var`; `node_modules` is a junction (63 MB, not duplicated) |
-| RAM per Claude Code session | 377 MB mean, 469 MB max (n=4) | plus ~144 MB per helper `node` process |
-| RAM per subagent | no separate process | a subagent is API calls from its parent; its cost is tokens (~60k start context per turn) and its worktree's disk |
-| Free RAM with four sessions open | 3,5 GB of 15,8 GB | the practical ceiling is "measured machine load", not a fixed count |
-
-So a wave of five implementers costs about 5 GB of disk and a few hundred MB of RAM on top of the
-session, and is reclaimed when the worktrees are removed after merge. Storage is the limit that
-bites first on a laptop; `worktree-remove.py` and the post-merge sweep exist so it does not
-accumulate.
-
-### Agent tiers
-
-Model and effort live in the agent file, never in the dispatch. Go up a tier for the task's
-complexity, never its priority.
+- **The session orchestrates. It doesn't implement.** It writes code itself only for trivial
+  edits. Everything else goes to an agent, which keeps the session's own context small for
+  the whole plan.
+- **Parallel by default.** Any task that doesn't need another task's output runs now, even two
+  sections of the same file. Conflicts get resolved at integration, not during the work.
+- **Each task gets the cheapest tier that can do it.** The tier depends on how complex the task
+  is, never on how urgent it is. Model and effort live in the agent file, not in the dispatch.
 
 | Task | Agent |
 |---|---|
 | Docs only | `impl-haiku-medium` |
-| Mechanical code, complete in the brief | `impl-sonnet-low` |
+| Mechanical, fully specified in the brief | `impl-sonnet-low` |
 | Well-scoped code (the default) | `impl-sonnet-medium` |
-| UI/UX work; too open to scope fully; a load-bearing invariant | `impl-opus-medium` |
-| The one task whose silent error invalidates everything after it | `impl-opus-high` |
-| Review the plan's diff · adversarial second pass · re-check | `review-first` · `review-adversarial` · `review-recheck` |
-| Read-only code review · rendered-geometry audit | `code-reviewer` · `audit-visual` |
-| Plan · architecture · one large plan end to end | `planner`, `planner-fable` · `architect` · `plan-orchestrator` |
+| UI work, open-ended tasks, load-bearing invariants | `impl-opus-medium` / `-high` |
+| Review the plan's diff · re-check after fixes | `review-first` · `review-recheck` |
 
-Reviewers start without `CLAUDE.md`; the brief pastes the rules that bite.
+## Guardrails
 
-## Hooks: the enforcement layer
+Written rules alone didn't hold, so hooks enforce the ones that matter for the loop:
 
-Each hook exists because a rule was written first and did not hold.
-
-```
-  Read   big file, no limit ──▶ read-guard ────────────▶ DENY + outline with line ranges
-  Agent  built-in / `model` ──▶ agent-dispatch-guard ──▶ DENY, lists the configured agents
-  Agent  impl-* w/o worktree ─▶ agent-dispatch-guard ──▶ DENY
-  Bash   node --test ─────────▶ node-test-compact ─────▶ REWRITE: log to file, print the summary
-  Bash   git commit @'…'@ ────▶ block-ps-heredoc ──────▶ DENY
-  Bash   git worktree remove ─▶ worktree-remove-guard ─▶ DENY while a junction remains
-  Edit   comment with date/SHA ▶ comment-guard ─────────▶ BLOCK, reason back to the model
-  Skill  writing-plans etc. ──▶ plan-dispatch-ruling ──▶ INJECT the dispatch rulings
-  SubagentStart ──────────────▶ research + peer blocks ─▶ INJECT
-  WorktreeCreate / Remove ────▶ worktree-create/-remove ▶ place, copy .env, unlink links first
-```
-
-| Hook | Why it exists |
+| Hook | Stops |
 |---|---|
-| `read-guard.py` + `outline.py` | An unbounded Read of a 40 KB file is refused and the refusal carries the file's outline, so the next call is a precise ranged Read |
-| `agent-dispatch-guard.py` | A built-in agent or a `model` override silently bypasses the tiering; an implementer outside a worktree blocks parallel work |
-| `node-test-compact.py` | 80.936 B of test output per run entered the context; the summary and failures are enough, the full log stays on disk |
-| `block-ps-heredoc-commit.py` | PowerShell `@'…'@` through the Bash tool leaked bare `@` lines into a commit message |
-| `worktree-remove-guard.py` | On Windows `git worktree remove` deletes through a junction; the main `node_modules` was emptied four times |
-| `comment-guard.py` | Dates, SHAs and long blocks in comments belong in git; `rules/code-comments.md` alone did not hold |
-| `plan-dispatch-ruling.py` | The rulings were first edited into a plugin's skill files, which every plugin update overwrites |
-| `subagent-research-context.py`, `peer-sessions-context.py` | Subagents do not inherit `CLAUDE.md`; sessions sharing one checkout collide on the index, stash and ports |
-| `worktree-create.py`, `worktree-remove.py` | Worktrees go to `<workspace>/.worktree/<project>/<name>`, branch from the main HEAD, carry `.env`; removal unlinks first and keeps a changed tree |
+| `agent-dispatch-guard.py` | dispatching a built-in agent, overriding `model`, or running an implementer outside a worktree |
+| `worktree-create.py` / `worktree-remove.py` | worktrees landing in the wrong place, or removal deleting through a `node_modules` junction |
+| `plan-dispatch-ruling.py` | a planning skill forgetting the dispatch rulings |
+| `read-guard.py` | the orchestrator reading a whole large file instead of a range |
+| `peer-sessions-context.py` | two sessions in one checkout colliding on the index, stash or ports |
 
-Every guard fails open: an internal error allows the call and says so. A guard must never be the
-thing that breaks a session.
+Every guard fails open. If a hook hits an internal error, it allows the call and says so.
 
-## Rules
+## What it costs
 
-| File | Scope | Subject |
-|---|---|---|
-| `workflow.md` | always | tokens, dispatch tiers, worktrees, commits, update in place |
-| `indonesian-copy.md` | always | Bahasa Indonesia copy that sells; EYD V mechanics |
-| `claude-md.md` | instruction files | what belongs in a `CLAUDE.md` and what does not |
-| `code-comments.md` | code | comment the WHY, briefly |
-| `coding-style`, `patterns`, `python-env`, `security`, `testing`, `hooks`, `python/fastapi` | Python | uv, ruff, pytest, pydantic at the boundary, FastAPI |
-| `web-code-and-tests.md` | js, php, html, css | fail loud; which test rung; when a test is owed |
-| `ui-ux.md` | html, css, jsx, tsx, vue, decks | no AI-looking design; family over component; no layout shift |
-| `visualisation.md` | charts, dashboards | when to draw a chart, how many, how |
-| `documentation.md` | `README.md` | ASCII diagrams; this file's structure |
-
-`CLAUDE.md` holds the two always-on rulings: do not over-engineer, and web research is mandatory for
-any real-world fact (search to find the page, `curl` to read it, record the source).
+Parallelism trades machine resources and tokens for wall-clock time. Measured on a 16 GB laptop:
+each worktree takes about 1 GB of disk, which is reclaimed after the merge, and each session about
+400 MB of RAM. Subagents add tokens, not processes. Disk runs out first, so worktrees get removed
+as soon as they're merged.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/adiatmaja/agentic-workflow && cd agentic-workflow
 cp CLAUDE.md ~/.claude/ && cp -r rules hooks agents ~/.claude/
-# settings.example.json holds permissions, hook wiring and plugins: merge it into
-# ~/.claude/settings.json (do not overwrite your own keys), then verify:
-bash tools/verify-setup.sh        # each line prints PASS or FAIL with the measured value
+# merge settings.example.json into ~/.claude/settings.json (keep your own keys), then:
+bash tools/verify-setup.sh        # PASS / FAIL per check
 ```
 
-Copy rather than symlink: rules in `~/.claude/rules/` load without an approval dialog, a symlink
-that resolves outside a project does not ([docs](https://code.claude.com/docs/en/memory)). Hooks
-need `python` on `PATH` and run through `bash` (Git Bash on Windows). `plan-dispatch-ruling`
-assumes the [superpowers](https://github.com/obra/superpowers) plugin and is inert without it.
+Hooks need `python` and `bash` (Git Bash on Windows). `plan-dispatch-ruling` expects the
+[superpowers](https://github.com/obra/superpowers) plugin and does nothing without it.
 
-### Or let your agent install it
-
-Paste this into Claude Code (or any harness with shell access) from any directory:
+<details>
+<summary>Or let your agent install it</summary>
 
 ```text
 Install the agentic-workflow configuration from https://github.com/adiatmaja/agentic-workflow into my Claude Code setup.
@@ -189,49 +109,26 @@ Install the agentic-workflow configuration from https://github.com/adiatmaja/age
 6. Remove the temporary clone. Do not touch any other path under ~/.claude.
 ```
 
-For Codex, Gemini CLI or Antigravity, paste instead: *"Clone https://github.com/adiatmaja/agentic-workflow,
-run `tools/export-config.sh --target <codex|gemini|agy>`, then run the generated `install.sh`
-for that target and show me its verification line."*
+</details>
 
-## One source, four harnesses
-
-```
-                    ┌──────────────────────────┐
-                    │  CLAUDE.md + rules/       │  prose: harness-agnostic
-                    │  hooks/ + agents/         │  machinery: Claude Code
-                    └────────────┬─────────────┘
-                                 │ tools/export-config.sh
-          ┌──────────────┬───────┴────────┬──────────────────┐
-          ▼              ▼                ▼                  ▼
-   Claude Code      Codex             Gemini CLI        Antigravity
-   copy into        AGENTS.md +       GEMINI.md block   config/AGENTS.md
-   ~/.claude        skills/           + skills/         + skills/
-```
-
-```bash
-tools/export-config.sh --target codex,gemini,agy   # one install.sh per target, idempotent
-tools/export-config.sh --flat                      # PORTABLE.md: one paste-able file for any harness
-```
-
-A rule without `paths:` goes into the target's global instruction file; a scoped rule becomes a
-skill loaded on demand. The script carries the measured caveats per harness (Codex's 32 KB
-project-doc cap, Gemini's `context.fileName` replacing the default, Antigravity's separate skills
-tree).
+**Other harnesses.** The rules are plain prose and port anywhere. `tools/export-config.sh --target
+codex,gemini,agy` writes an installer for each target, and `--flat` produces one paste-able file.
+Hooks and agents are Claude Code only.
 
 ## Project structure
 
 ```
 agentic-workflow/
 ├── CLAUDE.md               # always-on rulings
-├── rules/                  # 15 rules, 13 of them path-scoped
-├── hooks/                  # 11 hooks, 4 injected prose blocks, outline.py, read-guard.test.py
-├── agents/                 # 15 configured agents: impl-* tiers, review-*, planners, auditors
-├── settings.example.json   # permissions, hook wiring, plugins
-└── tools/                  # export-config.sh, flatten.awk, verify-setup.sh, measure-footprint.py
+├── rules/                  # workflow.md is the orchestrator; the rest are coding rules
+├── agents/                 # the tiers: impl-*, review-*, planners, auditors
+├── hooks/                  # the guardrails
+├── settings.example.json   # permissions and hook wiring
+└── tools/                  # export, verify, measure-footprint
 ```
 
-Related: [`finish-session`](https://github.com/adiatmaja/skills), the skill that ends a session
-with nothing running, uncommitted or unrecorded.
+The full rulings, with the measurements behind them, are in
+[`rules/workflow.md`](rules/workflow.md).
 
 ## License
 
