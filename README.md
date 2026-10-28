@@ -64,11 +64,16 @@ Measured on this setup (157k requests, deduplicated, see `rules/workflow.md`):
   push origin main on a green merged-tree gate · deploy only on explicit order
 ```
 
-The session dispatches, merges and reclaims worktrees; it implements only the trivial. **Anything
-not tied to another task's output runs at once, even two sections of the same file**: each
-implementer has its own worktree, the merge regenerates generated maps, and conflicts surface at
-integration, not during the work. Nobody waits for an agent: no polling, no sleeping; the harness
-re-invokes the session when a child reports.
+**The main session is an orchestrator, not an implementer.** It dispatches the agents, merges
+their branches one at a time, resolves the conflicts that integration surfaces, and reclaims the
+worktrees; it writes code itself only for the trivial. **Anything not tied to another task's output
+runs at once, even two sections of the same file**: each implementer has its own worktree, the
+merge regenerates generated maps, and a conflict is handled at integration, never during the work.
+
+The payoff is wall-clock time. A plan of five independent tasks takes one task's duration, not
+five, because five sessions work on it in parallel while the orchestrator waits for nothing: no
+polling, no sleeping; the harness re-invokes it when a child reports. The cost is machine
+resources and tokens, measured below.
 
 ### What it costs on the machine
 
