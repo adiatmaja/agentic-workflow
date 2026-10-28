@@ -64,9 +64,28 @@ Measured on this setup (157k requests, deduplicated, see `rules/workflow.md`):
   push origin main on a green merged-tree gate · deploy only on explicit order
 ```
 
-The session dispatches, merges and reclaims worktrees; it implements only the trivial. Independent
-tasks run at once, each in its own worktree. Nobody waits for an agent: no polling, no sleeping; the
-harness re-invokes the session when a child reports.
+The session dispatches, merges and reclaims worktrees; it implements only the trivial. **Anything
+not tied to another task's output runs at once, even two sections of the same file**: each
+implementer has its own worktree, the merge regenerates generated maps, and conflicts surface at
+integration, not during the work. Nobody waits for an agent: no polling, no sleeping; the harness
+re-invokes the session when a child reports.
+
+### What it costs on the machine
+
+Parallel dispatch trades machine resources for wall-clock time. Measured 2026-10-28 on a 16 GB
+Windows 11 laptop with four interactive sessions live (`tools/measure-footprint.py <workspace>`):
+
+| Resource | Measured | Notes |
+|---|---|---|
+| Disk per worktree | 907–988 MB (main checkout 2,45 GB) | tracked files + copied `.env`/`var`; `node_modules` is a junction (63 MB, not duplicated) |
+| RAM per Claude Code session | 377 MB mean, 469 MB max (n=4) | plus ~144 MB per helper `node` process |
+| RAM per subagent | no separate process | a subagent is API calls from its parent; its cost is tokens (~60k start context per turn) and its worktree's disk |
+| Free RAM with four sessions open | 3,5 GB of 15,8 GB | the practical ceiling is "measured machine load", not a fixed count |
+
+So a wave of five implementers costs about 5 GB of disk and a few hundred MB of RAM on top of the
+session, and is reclaimed when the worktrees are removed after merge. Storage is the limit that
+bites first on a laptop; `worktree-remove.py` and the post-merge sweep exist so it does not
+accumulate.
 
 ### Agent tiers
 
@@ -203,7 +222,7 @@ agentic-workflow/
 ├── hooks/                  # 11 hooks, 4 injected prose blocks, outline.py, read-guard.test.py
 ├── agents/                 # 15 configured agents: impl-* tiers, review-*, planners, auditors
 ├── settings.example.json   # permissions, hook wiring, plugins
-└── tools/                  # export-config.sh, flatten.awk, verify-setup.sh
+└── tools/                  # export-config.sh, flatten.awk, verify-setup.sh, measure-footprint.py
 ```
 
 Related: [`finish-session`](https://github.com/adiatmaja/skills), the skill that ends a session
