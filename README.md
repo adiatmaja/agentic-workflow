@@ -12,6 +12,10 @@ touches. I run the main session as an **orchestrator** instead, whatever I ask i
 worktree. The session then merges the result. A larger feature gets a plan first, and its
 independent tasks run side by side, so five of them take about as long as one.
 
+The orchestrator's context stays clean, too. Each agent does its reading, test runs and failed
+attempts in its own context and hands back only a short report and the diff. A long session of
+fixes stays sharp instead of filling up with files it read three tasks ago.
+
 The pattern isn't tied to one tool. It fits any agentic coding harness that can run subagents,
 work in git worktrees and hook into tool calls. This repo holds the rulings the orchestrator
 follows, the agent tiers it dispatches to, and the hooks that stop it from drifting back to doing
@@ -36,7 +40,8 @@ harness, and the rules export to Codex, Gemini CLI and Antigravity.
    │ agent  t1   │    │ agent  t2   │    │ agent  t3   │   one worktree each,
    │ sonnet      │    │ sonnet-low  │    │ opus        │   tier picked by
    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘   task complexity
-          └───────── short report + diff ───────┘
+          └───────── short report + diff ───────┘   the only thing that
+                            │                          comes back
                             │
   ┌─────────────────────────▼──────────────────────────────────┐
   │  INTEGRATE, one branch at a time                           │
@@ -54,8 +59,8 @@ dispatch, because planning skills cost more requests than they save on small wor
 There are three rules behind it:
 
 - **The session orchestrates. It doesn't implement.** It writes code itself only for trivial
-  edits. Everything else goes to an agent, even a single-file fix, which keeps the session's own
-  context small however long the session runs.
+  edits. Everything else goes to an agent, even a single-file fix. The agent's working context
+  stays with the agent; the session keeps only the results.
 - **Parallel by default.** Any task that doesn't need another task's output runs now, even two
   sections of the same file. Conflicts get resolved at integration, not during the work.
 - **Each task gets the cheapest tier that can do it.** The tier depends on how complex the task
