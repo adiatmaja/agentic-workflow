@@ -23,8 +23,8 @@ everything itself.
           │                                        │
   ┌───────▼────────────────────────────────────────▼───────────┐
   │  ORCHESTRATOR (main session)                               │
-  │  trivial edit ─▶ does it inline                            │
-  │  anything else ─▶ picks the tier, dispatches every         │
+  │  trivial edit -> does it inline                            │
+  │  anything else -> picks the tier, dispatches every         │
   │  unblocked task at once, then waits for nothing: the       │
   │  harness wakes it when an agent reports                    │
   └───────┬──────────────────┬──────────────────┬──────────────┘
@@ -37,8 +37,8 @@ everything itself.
                             │
   ┌─────────────────────────▼──────────────────────────────────┐
   │  INTEGRATE, one branch at a time                           │
-  │  rebase ─▶ lint + affected tests on the MERGED tree        │
-  │         ─▶ fast-forward main ─▶ remove the worktree        │
+  │  rebase -> lint + affected tests on the MERGED tree        │
+  │         -> fast-forward main -> remove the worktree        │
   └─────────────────────────┬──────────────────────────────────┘
                             ▼
           next wave (if any) starts from the new main ─▶ review
