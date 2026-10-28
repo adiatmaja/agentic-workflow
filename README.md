@@ -150,6 +150,25 @@ that resolves outside a project does not ([docs](https://code.claude.com/docs/en
 need `python` on `PATH` and run through `bash` (Git Bash on Windows). `plan-dispatch-ruling`
 assumes the [superpowers](https://github.com/obra/superpowers) plugin and is inert without it.
 
+### Or let your agent install it
+
+Paste this into Claude Code (or any harness with shell access) from any directory:
+
+```text
+Install the agentic-workflow configuration from https://github.com/adiatmaja/agentic-workflow into my Claude Code setup.
+
+1. Clone it into a temporary directory. Read its README.md first.
+2. Back up ~/.claude/CLAUDE.md and ~/.claude/settings.json if they exist (append .bak-<date>).
+3. Copy CLAUDE.md, rules/, hooks/ and agents/ into ~/.claude/. If a file with the same name already exists there, show me a diff and ask before overwriting.
+4. Merge settings.example.json into ~/.claude/settings.json: add its permissions, hooks and enabledPlugins entries to mine without removing any key I already have. Never overwrite the file.
+5. Run `bash tools/verify-setup.sh` and paste every PASS/FAIL line to me. Fix nothing silently: if a line fails, tell me why.
+6. Remove the temporary clone. Do not touch any other path under ~/.claude.
+```
+
+For Codex, Gemini CLI or Antigravity, paste instead: *"Clone https://github.com/adiatmaja/agentic-workflow,
+run `tools/export-config.sh --target <codex|gemini|agy>`, then run the generated `install.sh`
+for that target and show me its verification line."*
+
 ## One source, four harnesses
 
 ```
