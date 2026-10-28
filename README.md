@@ -99,38 +99,29 @@ as soon as they're merged.
 
 ## Quick start
 
-On Claude Code, the reference harness:
-
-```bash
-git clone https://github.com/adiatmaja/agentic-workflow && cd agentic-workflow
-cp CLAUDE.md ~/.claude/ && cp -r rules hooks agents ~/.claude/
-# merge settings.example.json into ~/.claude/settings.json (keep your own keys), then:
-bash tools/verify-setup.sh        # PASS / FAIL per check
-```
-
-Hooks need `python` and `bash` (Git Bash on Windows). `plan-dispatch-ruling` expects the
-[superpowers](https://github.com/obra/superpowers) plugin and does nothing without it.
-
-<details>
-<summary>Or let your agent install it</summary>
+Paste this into your coding agent. It works out which harness it is running in and installs
+accordingly.
 
 ```text
-Install the agentic-workflow configuration from https://github.com/adiatmaja/agentic-workflow into my Claude Code setup.
+Install the agentic-workflow configuration from https://github.com/adiatmaja/agentic-workflow into this harness's global setup.
 
-1. Clone it into a temporary directory. Read its README.md first.
-2. Back up ~/.claude/CLAUDE.md and ~/.claude/settings.json if they exist (append .bak-<date>).
-3. Copy CLAUDE.md, rules/, hooks/ and agents/ into ~/.claude/. If a file with the same name already exists there, show me a diff and ask before overwriting.
-4. Merge settings.example.json into ~/.claude/settings.json: add its permissions, hooks and enabledPlugins entries to mine without removing any key I already have. Never overwrite the file.
-5. Run `bash tools/verify-setup.sh` and paste every PASS/FAIL line to me. Fix nothing silently: if a line fails, tell me why.
-6. Remove the temporary clone. Do not touch any other path under ~/.claude.
+1. Clone the repo into a temporary directory and read its README.md and rules/workflow.md first.
+2. Tell me which harness you are (Claude Code, Codex, Gemini CLI, Antigravity or other) and where its global instruction file and config live. Back up each file you will change (append .bak-<date>).
+3. Never overwrite a file of mine. Where a file with the same name exists, show me the diff and ask first. Never remove a key or rule I already have.
+
+If you are Claude Code:
+4. Copy CLAUDE.md, rules/, hooks/ and agents/ into ~/.claude/, and tools/verify-setup.sh to ~/.claude/verify-setup.sh.
+5. Merge settings.example.json into ~/.claude/settings.json: add its permissions, hooks and enabledPlugins entries to mine.
+6. Check that `python` and `bash` are on PATH (Git Bash on Windows); the hooks need both. Tell me if the superpowers plugin is missing: plan-dispatch-ruling does nothing without it.
+7. Run `bash ~/.claude/verify-setup.sh` and show me every PASS/FAIL line. Fix nothing silently.
+
+If you are another harness:
+4. Append CLAUDE.md and every rule without a `paths:` header to your global instruction file. Turn each rule that has `paths:` into an on-demand skill or include in your own format. tools/flatten.awk documents the transforms another harness needs.
+5. Read agents/*.md and hooks/*.py. Map each agent to a subagent or profile of yours, picking your own small, mid and large models for the tiers. Where you support tool-call hooks, rewire the same checks; list every check you cannot enforce.
+6. Show me what you installed and where, file by file.
+
+Finally, delete the temporary clone and touch nothing else.
 ```
-
-</details>
-
-**On other harnesses.** The rules are plain prose and port anywhere. `tools/export-config.sh
---target codex,gemini,agy` writes an installer for each target, and `--flat` produces one
-paste-able file for any harness. The hooks and agent files use Claude Code's formats; porting them
-means rewiring the same checks to the target harness's own hook and subagent setup.
 
 ## Project structure
 

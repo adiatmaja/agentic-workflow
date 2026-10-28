@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-command check that the 2026-09-19 token-reduction setup is still in force.
-# Run from any project after installing into ~/.claude:  bash tools/verify-setup.sh
+# Installed as ~/.claude/verify-setup.sh; run from any project:  bash ~/.claude/verify-setup.sh
 # Every line prints PASS or FAIL with the measured value - never "looks fine".
 fail=0
 chk(){ if [ "$2" = "$3" ]; then printf "PASS  %-34s %s\n" "$1" "$2"; else printf "FAIL  %-34s got '%s' want '%s'\n" "$1" "$2" "$3"; fail=1; fi; }
