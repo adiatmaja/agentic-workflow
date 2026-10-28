@@ -1,8 +1,8 @@
 # agentic-workflow
 
-> An orchestrator workflow for AI coding harnesses: the main session doesn't write the code. It
-> picks the right agent for each task, runs independent tasks in parallel, and merges what comes
-> back.
+> My workflow for AI coding harnesses, in which the main session works like an orchestrator: it
+> doesn't write the code. It picks the right agent for each task, runs independent tasks in
+> parallel, and merges what comes back.
 
 ## Overview
 
