@@ -5,9 +5,14 @@
 
 ## Overview
 
-This is a curated copy of one developer's `~/.claude` as it runs day to day, with client and project
-identities removed. The prose parts (`CLAUDE.md`, `rules/`) are harness-agnostic and port to Codex,
-Gemini CLI and Antigravity with `tools/export-config.sh`. The machinery (`hooks/`, `agents/`,
+This is my working configuration for agentic coding, published as it runs day to day. I am
+[Johannes Baptista Adiatmaja Pambudi](https://adiatmaja.github.io/), a data scientist working on RAG
+systems, LLM fine-tuning, forecasting and agent tooling; this repo is the workflow those projects
+run on. Client and project names are removed, the rulings and measurements are kept, and every hook
+is the one in use.
+
+The prose parts (`CLAUDE.md`, `rules/`) are harness-agnostic and port to Codex, Gemini CLI and
+Antigravity with `tools/export-config.sh`. The machinery (`hooks/`, `agents/`,
 `settings.example.json`) uses Claude Code's hook and subagent protocol.
 
 The design rests on one measured fact: **every turn re-reads the whole context, so the bill is
